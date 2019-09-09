@@ -8,5 +8,5 @@ Currently supports:
 LZ77 support is planned.
 
 Requires following modules:
-```pip install kbinxml```
+
 ```pip install pycrypto```
