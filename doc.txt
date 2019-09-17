@@ -1,0 +1,67 @@
+Okay so this is how E-amusement network encryption works:
+
+There's multiple layers and i will try to visualize it a little bit like this:
+
+LZ77(
+    ARC4(
+        BinaryXML(
+            XML Data
+        )
+    )
+)
+
+As you can see there are 3 possible layers of encryption.
+
+The reason why i am calling the LZ77 function an encryption is because
+they built it from the ground up. There isn't any general purpose "LZ77" tool 
+that is going to help you decrypt this.
+
+The encryption methods are all optional and usage can be determined by looking at 
+what headers the client or server is sending.
+
+There is a way to determine if binaryXML is being used by checking if
+the first 5 characters match normal XML:
+
+def isBinaryXML(data):
+    return data[:5] != "<?xml"
+
+To determine if ARC4 and/or LZ77 is used. The server or client should provide that info
+through these headers:
+
+"X-Eamuse-Info" If this header is present then ARC4 encryption is used
+"X-Compress" = "lz77" If this is true then LZ77 is used.
+
+
+To decrypt the ARC4 encryption layer you need to do this:
+
+Get the 6 hex bytes from the X-Eamuse-Info header the game/server sent
+
+The header value looks something like this: 1-5d7fcea2-b2a8
+turn it into this: 5d7fcea2b2a8
+
+Once you have done that you need to append it to the back of the secret key, so:
+
+The secret key is a static value: "69D74627D985EE2187161570D08D93B12455035B6DF0D8205DF5"
+
+So the end result should be:
+
+"69D74627D985EE2187161570D08D93B12455035B6DF0D8205DF5" + "5D7FCEA2B2A8"
+= "69D74627D985EE2187161570D08D93B12455035B6DF0D8205DF55D7FCEA2B2A8"
+
+Now you have your key you need to turn it into a byte-array.
+
+Then get the md5 digest of that.
+
+The md5 digest will be the key for the ARC4 Cipher.
+So find a generic ARC4 Cipher, throw in the encrypted data
+and the key you just generated and it should decrypt.
+
+
+BinaryXML can be decrypted by Mon's KBinXML so i haven't bothered
+looking into that yet.
+
+
+
+
+
+
