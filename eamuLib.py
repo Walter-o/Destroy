@@ -40,7 +40,6 @@ def matchWindow(window, pos, data, dpos):
             maxPosition = i
             maxLength = length
 
-
         i += 1
 
     if maxLength >= THRESHOLD:
@@ -75,11 +74,11 @@ class Match:
 
 # Decompress Konami LZ77 data
 def LZ77Decompress(input):
-    input = [ord(m) for m in input]
+    input = [ord(m) for m in str(input)]
     currByte = 0
     windowCursor = 0
     dataSize = len(input)
-    window = [None for m in range(WINDOW_SIZE)]
+    window = [0] * WINDOW_SIZE
     output = []
 
     while currByte < dataSize:
@@ -96,7 +95,7 @@ def LZ77Decompress(input):
                      (input[currByte + 1] & 0xFF))
 
                 if w == 0:
-                    return "".join([chr(m) for m in output])
+                    return ordListToStr(output)
 
                 currByte += 2
                 position = int((windowCursor - (w >> 4)) & WINDOW_MASK)
@@ -108,15 +107,15 @@ def LZ77Decompress(input):
                     window[windowCursor] = b
                     windowCursor = (windowCursor + 1) & WINDOW_MASK
                     position += 1
-    return "".join([chr(m) for m in output])
+    return ordListToStr(output)
 
 # Compress Konami LZ77 data
 def LZ77Compress(input):
-    input = [ord(x) for x in input]
-    window = [None for x in range(WINDOW_SIZE)]
+    input = [ord(x) for x in str(input)]
+    window = [0] * WINDOW_SIZE
     currentPos = 0
     currentWindow = 0
-    buffer = [None for x in range(MAX_BUFFER)]
+    buffer = [0] * MAX_BUFFER
     output = []
 
     while currentPos < len(input):
@@ -164,7 +163,11 @@ def LZ77Compress(input):
         for k in range(currentBuffer):
             output.append(buffer[k])
 
-    return "".join([chr(m) for m in output])
+    return ordListToStr(output)
+
+# Converts a list of ordinal numbers into a string
+def ordListToStr(ordList):
+    return "".join([chr(x) for x in ordList])
 
 def strToHexBytes(string):
     return "".join([
@@ -187,12 +190,10 @@ def md5Digest(input):
 
 # Turns an E-Amuse-header into the ARC4 decryption key
 def headerToKey(eamuseHeader):
-    # trace("debug", "headerToKey received: %s" % eamuseHeader)
     headerKey = eamuseHeader.split("-")
     fullKey = headerKey[1] + headerKey[2] + _secretKey
     rawKey = strToHexBytes(fullKey)
     arc4Key = md5Digest(rawKey)
-    # trace("debug", "ARC4 key: %s"%hexBytesToStr(arc4Key))
     return arc4Key
 
 # Decrypts given data with the ARC4 decryption key
@@ -206,7 +207,7 @@ def ARC4Encrypt(data, key):
 
 # This is a kbinxml wrapper
 def binaryToXml(binaryXml):
-    return KBinXML(binaryXml).to_text()
+    return str(KBinXML(binaryXml).to_text())
 
 # This is a kbinxml wrapper
 def xmlToBinary(xmlData):
@@ -219,59 +220,52 @@ def isBinaryXML(data):
 
 # Main function for decrypting data
 def mainDecrypt(data, eamuseHeader=None, LZ77Compressed=False, binaryXML=True):
-    if LZ77Compressed == True:
-        data = LZ77Decompress(data)
     if eamuseHeader != None:
         arc4Key = headerToKey(eamuseHeader)
         data = ARC4Decrypt(data, arc4Key)
+    if LZ77Compressed == True:
+        data = LZ77Decompress(data)
     if binaryXML == True and isBinaryXML(data):
         data = binaryToXml(data)
-    trace("debug", "data: %s" % data)
-    # Converting to string because Mon put effort into getting
-    # unicode but it ends up not working with text to binary
-    return str(data)
+    return data
 
 
 # Main function for encrypting data
 def mainEncrypt(data, eamuseHeader=None, LZ77Compressed=False, binaryXML=True):
     if binaryXML == True:
         data = xmlToBinary(data)
+    if LZ77Compressed == True:
+        data = LZ77Compress(data)
     if eamuseHeader != None:
         arc4Key = headerToKey(eamuseHeader)
         data = ARC4Encrypt(data, arc4Key)
-    if LZ77Compressed == True:
-        data = LZ77Compress(data)
     return data
 
 
 # Test this encryption library
 def unitTest():
-    # Set test header and test data
-    testHeader = "1-5bfc6ff6-ba2f"
-    with open("Destroy/testData/unitTestData.txt","rb") as testData:
-        testDataBefore = testData.read()
+    testKey = "1-5d917aaa-bc88"
 
-    # Decrypting and re-encrypting the data, then assert equal to original
-    testDataAfter = mainEncrypt( mainDecrypt(testDataBefore, testHeader), testHeader)
-    assert testDataBefore == testDataAfter
-    trace("info", "ARC4 Decrypt: OK")
+    with open("Destroy/testData/binaryXML_LZ77_ARC4.txt", "rb") as BLA:
+        with open("Destroy/testData/binaryXML_LZ77.txt", "rb") as BL:
+            with open("Destroy/testData/binaryXML.txt", "rb") as B:
+                with open("Destroy/testData/plainText.txt", "rb") as P:
+                    BLA = BLA.read()
+                    BL = BL.read()
+                    B = B.read()
+                    P = P.read()
+    # Decryption
+    assert ARC4Decrypt(BLA, headerToKey(testKey)) == BL
+    assert LZ77Decompress(BL) == B
+    assert binaryToXml(B) == P
 
-    tests = ["small", "medium"]
-
-    # LZ77 Decompression test
-    for test in tests:
-        with open("Destroy/testData/LZ77_%sData.txt" % test, "rb") as data:
-            result = LZ77Decompress(data.read())
-        with open("Destroy/testData/LZ77_%sDataAnswer.txt" % test, "rb") as answer:
-            answer = answer.read()
-        trace("info", "LZ77 Decompress: %s Data " % test + ("OK" if result == answer else "FAIL"))
-
-    # LZ77 Compression test
-    for test in tests:
-        with open("Destroy/testData/LZ77_%sData.txt" % test, "rb") as data:
-            compressedData = data.read()
-        with open("Destroy/testData/LZ77_%sDataAnswer.txt" % test, "rb") as answer:
-            compressedAnswer = LZ77Compress(answer.read())
-        trace("info", "LZ77 Compress: %s Data " % test + ("OK" if compressedData == compressedAnswer else "FAIL"))
-
-
+    # Encryption #TODO
+    '''
+    fullEncrypt = mainEncrypt(P,
+                eamuseHeader=testKey,
+                LZ77Compressed=True)
+    fullDecrypt = mainDecrypt(fullEncrypt,
+                eamuseHeader=testKey,
+                LZ77Compressed=True)
+    '''
+    trace("info", "Destroy unitTest OK")

@@ -1,0 +1,11 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<call model="KFC:J:A:A:2019020600" srcid="01201000000054F8E18B" tag="690cfba3">
+  <game method="sv4_common" ver="0">
+    <locid __type="str">VOLTEX</locid>
+    <cstcode __type="str">CSTMCD</cstcode>
+    <cpycode __type="str">CMYCD</cpycode>
+    <hadid __type="str">1000</hadid>
+    <licid __type="str">1000</licid>
+    <actid __type="str">01201000000054F8E18B</actid>
+  </game>
+</call>
